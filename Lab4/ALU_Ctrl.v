@@ -39,10 +39,11 @@ parameter add     = 'h20;
 parameter sub     = 'h22;
 parameter and_    = 'h24;
 parameter or_     = 'h25;
-parameter slt_    = 'h42;
+parameter slt_    = 'h2a;
+parameter sl_     = 'h0;
 parameter sr_     = 'h2;
 parameter srv_    = 'h6;
-parameter jr      = 6'b001000;
+//parameter jr      = 6'b001000;
 parameter mul     = 'd24;
 
 // ALUop_i parameter; of IFormat
@@ -50,8 +51,8 @@ parameter RFormat = 3'b010;
 parameter addop   = 3'b000;
 parameter subop   = 3'b001;
 parameter sltop   = 3'b011; 
-parameter lui     = 3'b100;
-parameter ori     = 3'b101;
+//parameter lui     = 3'b100;
+//parameter ori     = 3'b101;
 parameter mul_    = 3'b110;
 //parameter bne     = 3'b110;
 
@@ -67,9 +68,10 @@ begin
 							and_: ALUCtrl_o <= 4'b0000;
 							or_:  ALUCtrl_o <= 4'b0001;
 							slt_: ALUCtrl_o <= 4'b0111;
+							sl_:  ALUCtrl_o <= 4'b1000; // shift left;
 							sr_:  ALUCtrl_o <= 4'b0011;
 							srv_: ALUCtrl_o <= 4'b0100;
-							jr:   ALUCtrl_o <= 4'b0000;
+							//jr:   ALUCtrl_o <= 4'b0000;
 							mul:  ALUCtrl_o <= 4'b1001;
 							default: ALUCtrl_o <= 4'b0000;
 						endcase
@@ -77,8 +79,8 @@ begin
 		addop:   ALUCtrl_o <= 4'b0010;
 		subop:   ALUCtrl_o <= 4'b0110;
 		sltop:   ALUCtrl_o <= 4'b0111;
-		lui:     ALUCtrl_o <= 4'b0101;
-		ori:     ALUCtrl_o <= 4'b0001; // do or;
+//		lui:     ALUCtrl_o <= 4'b0101;
+//		ori:     ALUCtrl_o <= 4'b0001; // do or;
 		mul_:    ALUCtrl_o <= 4'b1001;
 //		bne:     ALUCtrl_o <= 4'b1001;
 		default: ALUCtrl_o <= 4'b0000;

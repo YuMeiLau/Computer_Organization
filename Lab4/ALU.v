@@ -66,9 +66,10 @@ Shift_Cal Shifter_1(src1, src2, ctrl, shamt, result_shift);
 
 always @ (*)
 case (ctrl_i)
-	4'b0011: begin result_o <= result_shift;        zero_o <= zero;  end
-	4'b0100: begin result_o <= result_shift;        zero_o <= zero;  end
-	4'b0101: begin result_o <= result_shift * src2; zero_o <= zero;  end
+	4'b0011: begin result_o <= result_shift;        zero_o <= zero;  end // srl;
+	4'b1000: begin result_o <= result_shift;        zero_o <= zero;  end // sll;
+	4'b0100: begin result_o <= result_shift;        zero_o <= zero;  end // srlv;
+//	4'b0101: begin result_o <= result_shift * src1; zero_o <= zero;  end // lui;
 //	4'b1001: begin result_o <= result_cal;          zero_o <= ~zero; end
    4'b1001: begin result_o <= $signed(src1) * $signed(src2); zero_o <= zero; end
 	default: begin result_o <= result_cal;          zero_o <= zero;  end

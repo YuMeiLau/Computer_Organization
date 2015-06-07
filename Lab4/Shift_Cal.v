@@ -39,5 +39,6 @@ case(ctrl)
   4'b0011: result = src2 >> shamt;
   4'b0100: result = src2 >> src1;
   4'b0101: result = 1 << 16;
+  4'b1000: result = src2 << shamt;
 endcase
 endmodule

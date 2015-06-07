@@ -24,7 +24,7 @@ module TestBench;
   reg Clk, Start;
  // reg [31:0] i;
 
-  Simple_Single_CPU CPU(Clk,Start);
+  Pipe_CPU_1 CPU(Clk,Start);
   
   initial
   begin
