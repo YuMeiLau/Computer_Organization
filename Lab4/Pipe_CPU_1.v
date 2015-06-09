@@ -69,6 +69,7 @@ wire [5:0]  funct; assign funct = ex_instr[5:0];
 wire [4:0]  RTaddr_ex;
 wire [4:0]  RDaddr_ex;
 
+//wire [31:0] RTdata_ex_advanced;
 wire [31:0] operand_2;
 wire [4:0]  shamt;   assign shamt = ex_instr[10:6];
 wire [31:0] result_ex;
@@ -129,6 +130,29 @@ wire [31:0] RDdata_wb;
 wire RegWrite_wb;
 wire MemtoReg_wb;
 
+/**********Forwarding_unit***************/
+wire [1:0] Forward_A;
+wire [1:0] Forward_B;
+wire [31:0] RSdata_ex_advanced;
+wire [31:0] RTdata_ex_advanced;
+
+/**********hazard detection****/
+wire hazard;
+wire PCWrite; assign PCWrite = ~hazard;
+wire if_id_write; assign if_id_write = ~hazard;
+//EX stage;
+wire RegDst_id_i;
+wire [2:0] ALUOp_id_i;
+wire ALUSrc_id_i;
+
+//MEM stage;
+wire Branch_id_i;
+wire MemWrite_id_i;
+wire MemRead_id_i;
+
+//WB stage;
+wire RegWrite_id_i;
+wire MemtoReg_id_i;
 
 /****************************************
 Instnatiate modules
@@ -144,9 +168,9 @@ MUX_2to1 #(.size(32)) Mux_PC_Source(
 ProgramCounter PC(
 		.clk_i(clk_i),
 		.rst_i(rst_i),
+		.enable_i(PCWrite),
 		.pc_in_i(pc_source),
 		.pc_out_o(pc)
-
         );
 
 Instr_Memory IM(
@@ -166,6 +190,7 @@ Adder Add_pc(
 Pipe_Reg #(.size(64)) IF_ID(       //N is the total length of input/output
 		.clk_i(clk_i),
 		.rst_i(rst_i),
+		.enable_i(if_id_write),
 		.data_i({pc_next_if, if_instr}),
 		.data_o({pc_next_id, id_instr})
 
@@ -187,14 +212,21 @@ Reg_File RF(
 
 Decoder Control(
 		.instr_op_i(instr_op),
-		.RegWrite_o(RegWrite_id),
-		.ALU_op_o(ALUOp_id),
-		.ALUSrc_o(ALUSrc_id),
-		.RegDst_o(RegDst_id),
-		.Branch_o(Branch_id),
-		.MemRead_o(MemRead_id),
-		.MemWrite_o(MemWrite_id),
-		.MemtoReg_o(MemtoReg_id)
+		.RegWrite_o(RegWrite_id_i),
+		.ALU_op_o(ALUOp_id_i),
+		.ALUSrc_o(ALUSrc_id_i),
+		.RegDst_o(RegDst_id_i),
+		.Branch_o(Branch_id_i),
+		.MemRead_o(MemRead_id_i),
+		.MemWrite_o(MemWrite_id_i),
+		.MemtoReg_o(MemtoReg_id_i)
+		);
+
+MUX_2to1 #(.size(10)) NopOnIDControl(
+		.data0_i({RegDst_id_i, ALUOp_id_i, ALUSrc_id_i, Branch_id_i, MemRead_id_i, MemWrite_id_i, RegWrite_id_i, MemtoReg_id_i}),
+		.data1_i(10'b0),
+		.select_i(hazard),
+		.data_o({RegDst_id, ALUOp_id, ALUSrc_id, Branch_id, MemRead_id, MemWrite_id, RegWrite_id, MemtoReg_id})
 		);
 
 Sign_Extend Sign_Extend(
@@ -206,6 +238,7 @@ Sign_Extend Sign_Extend(
 Pipe_Reg #(.size(234)) ID_EX(
 		.clk_i(clk_i),
 		.rst_i(rst_i),
+		.enable_i(1),
 		.data_i({pc_next_id, RSdata_id, RTdata_id, sign_extend_id, RTaddr_id, RDaddr_id, id_instr, 
 				RegDst_id, ALUOp_id, ALUSrc_id, Branch_id, MemRead_id, MemWrite_id, RegWrite_id, MemtoReg_id}),
 		.data_o({pc_next_ex, RSdata_ex, RTdata_ex, sign_extend_ex, RTaddr_ex, RDaddr_ex, ex_instr,
@@ -215,7 +248,7 @@ Pipe_Reg #(.size(234)) ID_EX(
 		
 //Instantiate the components in EX stage	   
 ALU ALU(
-		.src1_i(RSdata_ex),
+		.src1_i(RSdata_ex_advanced),
 		.src2_i(operand_2),
 		.ctrl_i(ALUCtrl),
 		.shamt(shamt),
@@ -232,7 +265,7 @@ ALU_Ctrl ALU_Control(
 		);
 
 MUX_2to1 #(.size(32)) Mux1(
-		.data0_i(RTdata_ex),
+		.data0_i(RTdata_ex_advanced),
 		.data1_i(sign_extend_ex),
 		.select_i(ALUSrc_ex),
 		.data_o(operand_2)
@@ -263,13 +296,15 @@ Adder  Add_branch(
 Pipe_Reg #(.size(107)) EX_MEM(
 		.clk_i(clk_i),
 		.rst_i(rst_i),
+		.enable_i(1),
 		.data_i({branch_address_ex, result_ex, RTdata_ex, WriteReg_ex, 
 				zero_ex, Branch_ex, MemRead_ex, MemWrite_ex, RegWrite_ex, MemtoReg_ex}),
 		.data_o({branch_address_mem, result_mem, RTdata_mem, WriteReg_mem,
 				zero_mem, Branch_mem, MemRead_mem, MemWrite_mem, RegWrite_mem, MemtoReg_mem})
 
 		);
-			   
+
+		   
 //Instantiate the components in MEM stage
 Data_Memory Data_Memory(
 		.clk_i(clk_i),
@@ -284,6 +319,7 @@ Data_Memory Data_Memory(
 Pipe_Reg #(.size(71)) MEM_WB(
 		.clk_i(clk_i),
 		.rst_i(rst_i),
+		.enable_i(1),
 		.data_i({Readdata_mem, result_mem, WriteReg_mem,
 				RegWrite_mem, MemtoReg_mem}),
 		.data_o({Readdata_wb, result_wb, WriteReg_wb,
@@ -300,6 +336,41 @@ MUX_2to1 #(.size(32)) Mux3(
 
         );
 
+Forwarding_unit Forwarding(
+		.id_ex_rs(ex_instr[25:21]),
+		.id_ex_rt(RTaddr_ex),
+		.ex_mem_rd(WriteReg_mem),
+		.mem_wb_rd(WriteReg_wb),
+		.ex_mem_regwrite(RegWrite_mem),
+		.mem_wb_regwrite(RegWrite_wb),
+		.forward_A(Forward_A),
+		.forward_B(Forward_B)
+		
+		);
+		
+MUX_3to1 #(.size(32)) Forward_unit_A(
+		.data0_i(RSdata_ex),
+		.data1_i(result_mem), //???
+		.data2_i(RDdata_wb),  //???
+		.select_i(Forward_A),
+		.data_o(RSdata_ex_advanced)
+		);
+		
+MUX_3to1 #(.size(32)) Forward_unit_B(
+		.data0_i(RTdata_ex),
+		.data1_i(result_mem), //??
+		.data2_i(RDdata_wb),  //??
+		.select_i(Forward_B),
+		.data_o(RTdata_ex_advanced)
+		);
+
+Hazard_detection_unit Hazard_detecting(
+		.id_ex_rt(RTaddr_ex),
+		.if_id_rs(RSaddr_id),
+		.if_id_rt(RTaddr_id),
+		.id_ex_memread(MemRead_ex),
+		.hazard(hazard)
+		);
 /****************************************
 signal assignment
 ****************************************/	
