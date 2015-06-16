@@ -137,9 +137,11 @@ wire [31:0] RSdata_ex_advanced;
 wire [31:0] RTdata_ex_advanced;
 
 /**********hazard detection****/
-wire hazard;
-wire PCWrite; assign PCWrite = ~hazard;
-wire if_id_write; assign if_id_write = ~hazard;
+wire data_hazard;
+wire control_hazard; assign control_hazard = PCSrc;
+wire PCWrite; assign PCWrite = ~(data_hazard);
+wire if_id_write; assign if_id_write = ~data_hazard;
+/*************ID flush*************/
 //EX stage;
 wire RegDst_id_i;
 wire [2:0] ALUOp_id_i;
@@ -153,6 +155,21 @@ wire MemRead_id_i;
 //WB stage;
 wire RegWrite_id_i;
 wire MemtoReg_id_i;
+
+/***********EX flush**************/
+//MEM stage;
+wire Branch_ex_i;
+wire MemWrite_ex_i;
+wire MemRead_ex_i;
+
+//WB stage;
+wire RegWrite_ex_i;
+wire MemtoReg_ex_i;
+
+/*********IF flush*****************/
+wire [31:0] pc_next_if_i;
+wire [31:0] if_instr_i;
+
 
 /****************************************
 Instnatiate modules
@@ -186,6 +203,12 @@ Adder Add_pc(
 
 		);
 
+MUX_2to1 #(.size(64)) NopOnIF(
+		.data0_i({pc_next_if_i, if_instr_i}),
+		.data1_i(64'b0),
+		.select_i(control_hazard),
+		.data_o({pc_next_if, if_instr})
+		);
 		
 Pipe_Reg #(.size(64)) IF_ID(       //N is the total length of input/output
 		.clk_i(clk_i),
@@ -225,7 +248,7 @@ Decoder Control(
 MUX_2to1 #(.size(10)) NopOnIDControl(
 		.data0_i({RegDst_id_i, ALUOp_id_i, ALUSrc_id_i, Branch_id_i, MemRead_id_i, MemWrite_id_i, RegWrite_id_i, MemtoReg_id_i}),
 		.data1_i(10'b0),
-		.select_i(hazard),
+		.select_i(data_hazard || control_hazard),
 		.data_o({RegDst_id, ALUOp_id, ALUSrc_id, Branch_id, MemRead_id, MemWrite_id, RegWrite_id, MemtoReg_id})
 		);
 
@@ -242,7 +265,7 @@ Pipe_Reg #(.size(234)) ID_EX(
 		.data_i({pc_next_id, RSdata_id, RTdata_id, sign_extend_id, RTaddr_id, RDaddr_id, id_instr, 
 				RegDst_id, ALUOp_id, ALUSrc_id, Branch_id, MemRead_id, MemWrite_id, RegWrite_id, MemtoReg_id}),
 		.data_o({pc_next_ex, RSdata_ex, RTdata_ex, sign_extend_ex, RTaddr_ex, RDaddr_ex, ex_instr,
-				RegDst_ex, ALUOp_ex, ALUSrc_ex, Branch_ex, MemRead_ex, MemWrite_ex, RegWrite_ex, MemtoReg_ex})
+				RegDst_ex, ALUOp_ex, ALUSrc_ex, Branch_ex_i, MemRead_ex_i, MemWrite_ex_i, RegWrite_ex_i, MemtoReg_ex_i})
 
 		);
 		
@@ -292,7 +315,13 @@ Adder  Add_branch(
 		.sum_o(branch_address_ex)
 		
 		);
-
+MUX_2to1 #(.size(5)) NopOnEXControl(
+		.data0_i({Branch_ex_i, MemRead_ex_i, MemWrite_ex_i, RegWrite_ex_i, MemtoReg_ex_i}),
+		.data1_i(5'b0),
+		.select_i(control_hazard),
+		.data_o({Branch_ex, MemRead_ex, MemWrite_ex, RegWrite_ex, MemtoReg_ex})
+		);
+		
 Pipe_Reg #(.size(107)) EX_MEM(
 		.clk_i(clk_i),
 		.rst_i(rst_i),
@@ -369,7 +398,8 @@ Hazard_detection_unit Hazard_detecting(
 		.if_id_rs(RSaddr_id),
 		.if_id_rt(RTaddr_id),
 		.id_ex_memread(MemRead_ex),
-		.hazard(hazard)
+//		.branch_hazard(control_hazard),
+		.hazard(data_hazard)
 		);
 /****************************************
 signal assignment

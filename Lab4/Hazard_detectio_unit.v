@@ -23,6 +23,7 @@ module Hazard_detection_unit(
 	 if_id_rs,
 	 if_id_rt,
 	 id_ex_memread,
+//	 branch_hazard,
 	 hazard
     );
 	 
@@ -36,7 +37,7 @@ reg hazard;
 
 always @ (*)
 begin
-	if(id_ex_memread && ((id_ex_rt == if_id_rs) || (id_ex_rt == if_id_rt)))
+	if(id_ex_memread && ((id_ex_rt == if_id_rs) || (id_ex_rt == if_id_rt))) //|| branch_hazard	
 		hazard <= 1'b1;
 	else hazard <= 1'b0;
 end
